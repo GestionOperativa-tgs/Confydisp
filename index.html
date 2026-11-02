@@ -162,8 +162,9 @@ footer.wrap{padding-block:0 32px;font-size:12px;color:var(--ink-3)}
   </section>
 
   <section aria-labelledby="hLP">
-    <div class="sec-head"><div><h2 id="hLP">Linepack</h2><p>Stock de transporte al cierre de cada mes, en millones de m³ @ 9300 kcal</p></div></div>
+    <div class="sec-head"><div><h2 id="hLP">Linepack y volumen transportado</h2><p>Valores en millones de m³ @ 9300 kcal</p></div></div>
     <div class="grid2"><div class="panel" id="pLP"></div><div class="panel" id="pLPv"></div></div>
+    <div class="panel" id="pVol" style="margin-top:16px"></div>
   </section>
 
   <section aria-labelledby="hEv">
@@ -263,7 +264,7 @@ function normalizar(raw){
   toObjs(raw.CONFIG).forEach(o=>{const k=String(o.Parametro||"").trim(); const m=k.match(/^Planta_([A-Z0-9]+)$/i); if(m&&String(o.Valor||"").trim()) PLANTAS[m[1].toUpperCase()]=String(o.Valor).trim();});
   CODIGOS.forEach(c=>{if(!PLANTAS[c]) PLANTAS[c]=c;});
   const base=toObjs(raw.BASE).map(o=>{
-    const r={anio:num(o["Año"]??o["Anio"]),mes:num(o["Mes"]),lp:num(o["Linepack_m3"])};
+    const r={anio:num(o["Año"]??o["Anio"]),mes:num(o["Mes"]),lp:num(o["Linepack_m3"]),vol:num(o["Volumen_m3d"])};
     PCT_COLS.forEach(k=>{const m=k.match(RE_COL); const key=`${m[1].toUpperCase()}_${m[2].toUpperCase()}_${m[3][0].toUpperCase()+m[3].slice(1).toLowerCase()}`; let v=num(o[k]); if(v!==null&&v>1.0001&&v<=100) v=v/100; r[key]=v;});
     return r;
   }).filter(r=>r.anio&&r.mes>=1&&r.mes<=12);
@@ -455,6 +456,37 @@ function linepack(){
     <div class="chart"></div>`;
   barsDiv(hostB.querySelector(".chart"),dv);
 }
+function volumen(){
+  const host=document.getElementById("pVol"), i=ST.mes-1;
+  const v=hasta(serie("vol")), ok=v.filter(x=>x!==null);
+  if(!D.base.some(r=>r.vol!=null)){host.hidden=true;return;} host.hidden=false;
+  let sw=0,sv=0; v.forEach((x,k)=>{if(x!==null){const d=diasMes(ST.anio,k+1); sw+=d; sv+=x*d;}});
+  const prom=sw?sv/sw:null, tot=v[i]!==null?v[i]*diasMes(ST.anio,i+1):null, mx=ok.length?Math.max(...ok):null;
+  const f2=x=>x===null?"—":(x/1e6).toLocaleString("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2});
+  host.innerHTML=`<h3>Volumen transportado</h3><p class="note" style="margin:0">Promedio diario de cada mes, en millones de m³ por día @ 9300 kcal</p>
+    <div class="kpis"><div class="kpi"><b style="color:var(--s-conf)">${f2(v[i])}</b><span>Promedio diario de ${MESES_L[i].toLowerCase()} · MMm³/día</span></div>
+    <div class="kpi"><b>${f2(prom)}</b><span>Promedio diario del año · MMm³/día</span></div>
+    <div class="kpi"><b>${tot===null?"—":(tot/1e6).toLocaleString("es-AR",{maximumFractionDigits:0})}</b><span>Volumen total de ${MESES_L[i].toLowerCase()} · MMm³</span></div>
+    <div class="kpi"><b>${f2(mx)}</b><span>Máximo mensual del año · MMm³/día</span></div></div>
+    <div class="chart"></div>`;
+  barsMag(host.querySelector(".chart"),v,f2,prom);
+}
+function barsMag(host,vals,f2,ref){
+  const W=Math.max(280,host.clientWidth),H=Math.round(Math.min(260,Math.max(190,W*.3)));
+  const m={l:48,r:12,t:16,b:26},iw=W-m.l-m.r,ih=H-m.t-m.b;
+  const mx=Math.max(1e6,...vals.filter(v=>v!==null)); const raw=mx/1e6/4; const pw=Math.pow(10,Math.floor(Math.log10(raw)));
+  const st=[1,2,2.5,5,10].map(k=>k*pw).find(k=>k>=raw)*1e6; const top=Math.ceil(mx/st)*st;
+  const y=v=>m.t+ih*(1-v/top), bw=Math.min(36,iw/12*.6);
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Volumen transportado por mes">`;
+  for(let t=0;t<=top+1;t+=st) s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${y(t)}" y2="${y(t)}" stroke="var(--grid)"/><text x="${m.l-6}" y="${y(t)+4}" text-anchor="end">${(t/1e6).toLocaleString("es-AR",{maximumFractionDigits:1})}</text>`;
+  MESES.forEach((n,i)=>{ if(W<420&&i%2) return; s+=`<text x="${m.l+iw*(i+.5)/12}" y="${H-6}" text-anchor="middle">${n}</text>`;});
+  if(ref) s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${y(ref)}" y2="${y(ref)}" stroke="var(--ink-3)" stroke-width="1.5" stroke-dasharray="5 4"/><text style="paint-order:stroke" stroke="var(--panel)" stroke-width="4" x="${W-m.r}" y="${y(ref)-5}" text-anchor="end">Promedio del año ${f2(ref)}</text>`;
+  vals.forEach((v,i)=>{ if(v===null) return; const cx=m.l+iw*(i+.5)/12, y0=y(0), y1=y(v), r=Math.min(4,(y0-y1)/2);
+    s+=`<path d="M${cx-bw/2},${y0}V${y1+r}Q${cx-bw/2},${y1} ${cx-bw/2+r},${y1}H${cx+bw/2-r}Q${cx+bw/2},${y1} ${cx+bw/2},${y1+r}V${y0}Z" fill="var(--s-conf)" fill-opacity="${i===ST.mes-1?1:.55}"><title>${MESES_L[i]}: ${f2(v)} MMm³/día</title></path>`;
+    if(W>=560) s+=`<text x="${cx}" y="${y1-6}" text-anchor="middle" style="paint-order:stroke;fill:var(--ink-2)" stroke="var(--panel)" stroke-width="4">${f2(v)}</text>`;
+  });
+  host.innerHTML=s+"</svg>";
+}
 function barsDiv(host,vals){
   const W=Math.max(280,host.clientWidth),H=Math.round(Math.min(260,Math.max(190,W*.42)));
   const m={l:48,r:12,t:12,b:26},iw=W-m.l-m.r,ih=H-m.t-m.b;
@@ -493,7 +525,7 @@ function ultimoMes(anio){
   let u=0; D.base.filter(r=>r.anio===anio).forEach(r=>{ if(KEYS.some(k=>r[k]!=null)||r.lp!==null) u=Math.max(u,r.mes); }); return u||1;
 }
 function render(){
-  resumen(); panelesEquipo("TC"); panelesEquipo("MG"); linepack(); eventos();
+  resumen(); panelesEquipo("TC"); panelesEquipo("MG"); linepack(); volumen(); eventos();
 }
 function controles(){
   const anios=[...new Set(D.base.filter(r=>KEYS.some(k=>r[k]!=null)).map(r=>r.anio))].sort();
