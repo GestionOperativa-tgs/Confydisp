@@ -162,14 +162,14 @@ footer.wrap{padding-block:0 32px;font-size:12px;color:var(--ink-3)}
     <div class="panel" id="evList"></div>
   </section>
 </main>
-<footer class="wrap"><p>Sistema GPM = promedio de las plantas con dato en cada mes. Acumulado = promedio del año ponderado por las horas calendario de cada mes. Confiabilidad excluye las paradas programadas; disponibilidad las incluye todas.</p></footer>
+<footer class="wrap"><p>Sistema GPM = promedio de las plantas con dato en cada mes. Acumulado = promedio del año ponderado por las horas calendario de cada mes. Confiabilidad excluye las paradas programadas; disponibilidad las incluye todas.</p><p id="fuenteDatos"></p></footer>
 
 <script>
 /* ===== CONFIGURACIÓN DE FUENTE =====
    Opción A (recomendada): URL de la aplicación web de Apps Script (ver Code.gs).
    Opción B: ID del Google Sheets compartido "cualquier persona con el enlace puede ver".
    Si ambas están vacías o fallan, se usan los datos embebidos de abajo. */
-const FUENTE = { appsScriptUrl: "", sheetId: "" };
+const FUENTE = { appsScriptUrl: "https://script.google.com/macros/s/AKfycbxn_Y_peb_EiGzUGno13CIPV7pxVaTwE4cfCD74XJTr4gtp8e642wNs3D8MgeKgj7M/exec", sheetId: "" };
 
 /* Copia embebida de la base (respaldo) */
 const EMBEBIDO = {
@@ -487,6 +487,8 @@ function controles(){
   const {raw,src}=await cargar();
   D=normalizar(raw);
   console.info("Fuente de datos: "+src);
+  const gen=raw&&raw.generado?new Date(raw.generado).toLocaleString("es-AR",{dateStyle:"short",timeStyle:"short"}):null;
+  const fe=document.getElementById("fuenteDatos"); if(fe) fe.textContent=src.startsWith("Google")?`Datos: Google Sheets${gen?" · leídos "+gen:""}.`:"Datos: copia embebida (no se pudo leer el Google Sheets).";
   if(!D.base.length){document.querySelector("main").innerHTML=`<p class="empty">La pestaña BASE no tiene filas válidas. Revisar que los encabezados coincidan con la plantilla.</p>`;return;}
   controles(); render();
   let t; addEventListener("resize",()=>{clearTimeout(t);t=setTimeout(render,150);});
