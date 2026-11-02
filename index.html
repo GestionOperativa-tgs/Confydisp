@@ -13,6 +13,7 @@
   --brand:#123a5c; --brand-ink:#ffffff;
   --s-conf:#2a78d6; --s-disp:#eb6834; --s-up:#2a78d6; --s-down:#eb6834;
   --ok:#1d7a4a; --ok-bg:#e3f3ea; --bad:#b4352f; --bad-bg:#fbe7e5; --na-bg:#eef1f4;
+  --c-tc:#FFD1DC; --c-mg:#AEC6CF; --c-lp:#FFDAB9; --c-ink-card:#2C3E50;
   --f-disp:"Barlow Semi Condensed","Arial Narrow",Arial,sans-serif;
   --f-body:"Barlow",Arial,Helvetica,sans-serif;
   --f-num:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
@@ -79,6 +80,12 @@ section>h2{font:700 20px/1.2 var(--f-disp);margin:0;letter-spacing:.01em}
 .lbl{font:500 11px/1.3 var(--f-disp);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
 .bign{font:500 clamp(24px,3vw,30px)/1.1 var(--f-num);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .bign.ok{color:var(--ok)}.bign.bad{color:var(--bad)}
+.sys.tc{background:var(--c-tc)}.sys.mg{background:var(--c-mg)}.sys.lp{background:var(--c-lp)}
+.sys.tc,.sys.mg,.sys.lp{border-color:transparent;color:var(--c-ink-card)}
+.sys.tc .lbl,.sys.mg .lbl,.sys.lp .lbl,.sys .sys-meta{color:var(--c-ink-card);opacity:.78}
+.sys .tag{background:rgba(44,62,80,.12);color:var(--c-ink-card)}
+.sys .sys-sep{border-top-color:rgba(44,62,80,.2)}
+.sys .bign.ok{color:#14613a}.sys .bign.bad{color:#9e2a24}
 .sys-sep{padding-top:12px;border-top:1px solid var(--line)}
 .sys-meta{font-size:12px;color:var(--ink-3)}
 .sys-sub{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:13px;color:var(--ink-2);padding-top:8px;border-top:1px solid var(--line)}
@@ -394,14 +401,14 @@ function resumen(){
   let h="";
   [["TC","Turbocompresores","TTCC"],["MG","Motogeneradores","MMGG"]].forEach(([eq,nom,sig])=>{
     const c=sistema(eq,"Conf"), d=sistema(eq,"Disp"), cA=acumulada(c), dA=acumulada(d), mC=meta(eq,"Conf"), mD=meta(eq,"Disp");
-    h+=`<div class="panel sys"><div class="sys-h"><h3>${nom}</h3><span class="tag">${sig}</span></div>
+    h+=`<div class="panel sys ${eq.toLowerCase()}"><div class="sys-h"><h3>${nom}</h3><span class="tag">${sig}</span></div>
       <div class="sys-big"><div><span class="lbl">Confiabilidad ${mes}</span>${bigVal(c[i],mC)}</div><div><span class="lbl">Confiabilidad acumulada</span>${bigVal(cA[i],mC)}</div></div>
       <div class="sys-big sys-sep"><div><span class="lbl">Disponibilidad ${mes}</span>${bigVal(d[i],mD)}</div><div><span class="lbl">Disponibilidad acumulada</span>${bigVal(dA[i],mD)}</div></div>
       ${(mC!==null||mD!==null)?`<div class="sys-meta">Meta: confiabilidad ${fmtP(mC)} · disponibilidad ${fmtP(mD)}</div>`:""}</div>`;
   });
   const lp=hasta(serie("lp")), dv=lpPrev(lp), acum=dv.reduce((a,b)=>b===null?a:a+b,0);
   const lv=lp.filter(v=>v!==null), prom=lv.length?lv.reduce((a,b)=>a+b,0)/lv.length:null;
-  h+=`<div class="panel sys"><div class="sys-h"><h3>Linepack</h3><span class="tag">MMm³ @ 9300 kcal</span></div>
+  h+=`<div class="panel sys lp"><div class="sys-h"><h3>Linepack</h3><span class="tag">MMm³ @ 9300 kcal</span></div>
     <div class="sys-big"><div><span class="lbl">Stock al cierre de ${mes}</span><b class="bign">${fmtMM(lp[i])}</b></div><div><span class="lbl">Variación vs mes anterior</span><b class="bign">${fmtSigned(dv[i])}</b></div></div>
     <div class="sys-big sys-sep"><div><span class="lbl">Promedio del año</span><b class="bign">${fmtMM(prom)}</b></div><div><span class="lbl">Variación acumulada del año</span><b class="bign">${fmtSigned(dv.some(v=>v!==null)?acum:null)}</b></div></div></div>`;
   document.getElementById("sysRes").innerHTML=h;
