@@ -51,10 +51,12 @@ section>h2{font:700 20px/1.2 var(--f-disp);margin:0;letter-spacing:.01em}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
 @media (max-width:420px){.grid2{grid-template-columns:1fr}}
 .panel h3{font:600 15px var(--f-disp);margin:0 0 2px;letter-spacing:.02em}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px 14px;margin:6px 0 10px}
+.grid2>.panel{container-type:inline-size}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px 14px;margin:6px 0 10px}
 .kpi{display:flex;flex-direction:column}
+@container (max-width:520px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .kpi b{font:500 20px var(--f-num);font-variant-numeric:tabular-nums}
-.kpi span{font:500 11px var(--f-disp);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.kpi span{font:500 11px/1.3 var(--f-disp);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
 .legend{display:flex;gap:14px;font-size:12px;color:var(--ink-2);flex-wrap:wrap}
 .legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
 .legend i.dash{background:repeating-linear-gradient(90deg,var(--ink-3) 0 4px,transparent 4px 7px)!important;height:2px}
@@ -74,9 +76,11 @@ section>h2{font:700 20px/1.2 var(--f-disp);margin:0;letter-spacing:.01em}
 .sys-h h3{font-size:17px;margin:0}
 .sys-big{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .sys-big>div{display:flex;flex-direction:column;gap:2px;min-width:0}
-.lbl{font:500 11px var(--f-disp);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.lbl{font:500 11px/1.3 var(--f-disp);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
 .bign{font:500 clamp(24px,3vw,30px)/1.1 var(--f-num);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .bign.ok{color:var(--ok)}.bign.bad{color:var(--bad)}
+.sys-sep{padding-top:12px;border-top:1px solid var(--line)}
+.sys-meta{font-size:12px;color:var(--ink-3)}
 .sys-sub{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:13px;color:var(--ink-2);padding-top:8px;border-top:1px solid var(--line)}
 .sys-sub b{font:500 13px var(--f-num);color:var(--ink)}
 .sys-sp{display:flex;flex-direction:column;gap:4px;margin-top:auto}
@@ -97,7 +101,7 @@ td .pl{color:var(--ink-3);font-size:12px;margin-left:6px}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{font:500 13px var(--f-body);border:1px solid var(--line);background:var(--panel);color:var(--ink-2);padding:4px 10px;border-radius:999px;cursor:pointer}
 .chip[aria-pressed="true"]{border-color:var(--ink);color:var(--ink);background:var(--na-bg)}
-.ev{display:grid;grid-template-columns:72px 1fr;gap:4px 14px;padding:10px 0;border-bottom:1px solid var(--line)}
+.ev{display:grid;grid-template-columns:104px 1fr;gap:4px 14px;padding:10px 0;border-bottom:1px solid var(--line)}
 .ev:last-child{border-bottom:0}
 .ev .m{font:600 13px var(--f-disp);text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2)}
 .ev .t{min-width:0}
@@ -131,6 +135,7 @@ footer.wrap{padding-block:0 32px;font-size:12px;color:var(--ink-3)}
   <section aria-labelledby="hRes">
     <div class="sec-head"><div><h2 id="hRes">Sistema GPM</h2><p id="resSub"></p></div></div>
     <div class="grid3" id="sysRes"></div>
+    <div class="panel" id="pSysTC" style="margin-top:16px"></div>
   </section>
 
   <section aria-labelledby="hTC">
@@ -211,7 +216,7 @@ const EQUIPOS={TC:"Turbocompresor",MG:"Motogeneradores"};
 let PCT_COLS=[], KEYS=[], CODIGOS=[]; // se detectan de los encabezados de BASE: TC_XXX_Conf, MG_XXX_Disp, etc.
 const RE_COL=/^(TC|MG)_([A-Z0-9]+)_(Conf|Disp)$/i;
 
-let D=null, ST={anio:null,mes:null,vista:{TC:"m",MG:"m"},evF:"Todos"};
+let D=null, ST={anio:null,mes:null,vista:{TC:"m",MG:"m",SYS:"a"},evF:"Todos"};
 
 /* ---------- parsing ---------- */
 function num(v){
@@ -292,8 +297,8 @@ function pill(v,m){ if(v===null) return `<span class="pill">—</span>`; const c
 
 /* ---------- gráfico de líneas (SVG) ---------- */
 function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
-function lineChart(host,{series,meta:mt,domain,fmt,unit}){
-  const W=Math.max(280,host.clientWidth), H=Math.round(Math.min(260,Math.max(190,W*.42)));
+function lineChart(host,{series,meta:mt,domain,fmt,unit,alto}){
+  const W=Math.max(280,host.clientWidth), H=Math.round(Math.min(alto||260,Math.max(190,W*.42)));
   const m={l:48,r:12,t:12,b:26}, iw=W-m.l-m.r, ih=H-m.t-m.b;
   const x=i=>m.l+iw*(i+.5)/12, y=v=>m.t+ih*(1-(v-domain[0])/(domain[1]-domain[0]));
   const ticks=domain.ticks;
@@ -357,12 +362,12 @@ function panelEquipo(eq,pl){
   const i=ST.mes-1;
   host.innerHTML=`<h3>${PLANTAS[pl]}</h3>
     <div class="kpis">
-      <div class="kpi"><b style="color:var(--s-conf)">${fmtP(c[i])}</b><span>Conf. ${MESES[i]}</span></div>
-      <div class="kpi"><b style="color:var(--s-disp)">${fmtP(d[i])}</b><span>Disp. ${MESES[i]}</span></div>
-      <div class="kpi"><b>${fmtP(cA[i])}</b><span>Conf. acum.</span></div>
-      <div class="kpi"><b>${fmtP(dA[i])}</b><span>Disp. acum.</span></div>
+      <div class="kpi"><b style="color:var(--s-conf)">${fmtP(c[i])}</b><span>Confiabilidad ${MESES_L[i].toLowerCase()}</span></div>
+      <div class="kpi"><b style="color:var(--s-disp)">${fmtP(d[i])}</b><span>Disponibilidad ${MESES_L[i].toLowerCase()}</span></div>
+      <div class="kpi"><b>${fmtP(cA[i])}</b><span>Confiabilidad acumulada</span></div>
+      <div class="kpi"><b>${fmtP(dA[i])}</b><span>Disponibilidad acumulada</span></div>
     </div>
-    <div class="legend"><span><i style="background:var(--s-conf)"></i>Confiabilidad</span><span><i style="background:var(--s-disp)"></i>Disponibilidad</span>${(mC!=null||mD!=null)?`<span><i class="dash"></i>Meta disp.</span>`:""}</div>
+    <div class="legend"><span><i style="background:var(--s-conf)"></i>Confiabilidad</span><span><i style="background:var(--s-disp)"></i>Disponibilidad</span>${(mC!=null||mD!=null)?`<span><i class="dash"></i>Meta</span>`:""}</div>
     <div class="chart"></div>`;
   const dom=pctDomain([...cv,...dv],mD);
   lineChart(host.querySelector(".chart"),{series:[{name:"Disponibilidad",color:"var(--s-disp)",values:dv},{name:"Confiabilidad",color:"var(--s-conf)",values:cv}],meta:mD??mC,domain:dom,fmt:fmtTick});
@@ -371,24 +376,36 @@ function sistema(eq,ind){ // GPM = promedio de las plantas con dato en cada mes
   const ss=plantasCon(eq).map(pl=>hasta(serie(`${eq}_${pl}_${ind}`)));
   return Array.from({length:12},(_,i)=>{const v=ss.map(x=>x[i]).filter(x=>x!==null); return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;});
 }
+function graficoSistema(){
+  const host=document.getElementById("pSysTC"), ac=ST.vista.SYS==="a";
+  const c=sistema("TC","Conf"), d=sistema("TC","Disp"), cv=ac?acumulada(c):c, dv=ac?acumulada(d):d;
+  const mD=meta("TC","Disp"), mC=meta("TC","Conf");
+  host.innerHTML=`<div class="sec-head" style="margin-bottom:4px"><div><h3>Turbocompresores · Sistema GPM</h3><p class="note">${ac?"Confiabilidad y disponibilidad acumuladas del año, mes a mes":"Confiabilidad y disponibilidad de cada mes"}</p></div>
+    <div class="seg" role="group" aria-label="Vista sistema"><button type="button" id="sysAcu" data-v="a" aria-pressed="${ac}">Acumulado</button><button type="button" id="sysMen" data-v="m" aria-pressed="${!ac}">Mensual</button></div></div>
+    <div class="legend"><span><i style="background:var(--s-conf)"></i>Confiabilidad</span><span><i style="background:var(--s-disp)"></i>Disponibilidad</span>${(mC!=null||mD!=null)?`<span><i class="dash"></i>Meta</span>`:""}</div>
+    <div class="chart"></div>`;
+  host.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{ST.vista.SYS=b.dataset.v;graficoSistema();});
+  lineChart(host.querySelector(".chart"),{series:[{name:"Disponibilidad",color:"var(--s-disp)",values:dv},{name:"Confiabilidad",color:"var(--s-conf)",values:cv}],meta:mD??mC,domain:pctDomain([...cv,...dv],mD??mC),fmt:fmtTick,alto:280});
+}
 function bigVal(v,m){const c=m===null||v===null?"":(v>=m-1e-9?"ok":"bad"); return `<b class="bign ${c}">${fmtP(v)}</b>`;}
 function resumen(){
-  const i=ST.mes-1;
-  document.getElementById("resSub").textContent=`${[...new Set([...plantasCon("TC"),...plantasCon("MG")])].map(c=>PLANTAS[c]).join(" + ")} · ${MESES_L[i]} ${ST.anio} y acumulado enero–${MESES_L[i].toLowerCase()}`;
+  const i=ST.mes-1, mes=MESES_L[i].toLowerCase();
+  document.getElementById("resSub").textContent=`${[...new Set([...plantasCon("TC"),...plantasCon("MG")])].map(c=>PLANTAS[c]).join(" + ")} · ${MESES_L[i]} ${ST.anio} y acumulado enero–${mes}`;
   let h="";
-  [["TC","Turbocompresores"],["MG","Motogeneradores"]].forEach(([eq,nom])=>{
-    const c=sistema(eq,"Conf"), d=sistema(eq,"Disp"), cA=acumulada(c), dA=acumulada(d), mC=meta(eq,"Conf");
-    h+=`<div class="panel sys"><div class="sys-h"><h3>${nom}</h3><span class="tag">TTCC</span></div>
-      <div class="sys-big"><div><span class="lbl">Confiabilidad ${MESES[i]}</span>${bigVal(c[i],mC)}</div><div><span class="lbl">Confiabilidad acum.</span>${bigVal(cA[i],mC)}</div></div>
-      <div class="sys-sub"><span>Disp. ${MESES[i]} <b>${fmtP(d[i])}</b></span><span>Disp. acum. <b>${fmtP(dA[i])}</b></span>${mC!==null?`<span>Meta conf. <b>${fmtP(mC)}</b></span>`:""}</div>
-      <div class="sys-sp">${spark(c,"var(--s-conf)")}<span class="lbl">Confiabilidad mensual ${ST.anio}</span></div></div>`.replace("TTCC",eq==="TC"?"TTCC":"MMGG");
+  [["TC","Turbocompresores","TTCC"],["MG","Motogeneradores","MMGG"]].forEach(([eq,nom,sig])=>{
+    const c=sistema(eq,"Conf"), d=sistema(eq,"Disp"), cA=acumulada(c), dA=acumulada(d), mC=meta(eq,"Conf"), mD=meta(eq,"Disp");
+    h+=`<div class="panel sys"><div class="sys-h"><h3>${nom}</h3><span class="tag">${sig}</span></div>
+      <div class="sys-big"><div><span class="lbl">Confiabilidad ${mes}</span>${bigVal(c[i],mC)}</div><div><span class="lbl">Confiabilidad acumulada</span>${bigVal(cA[i],mC)}</div></div>
+      <div class="sys-big sys-sep"><div><span class="lbl">Disponibilidad ${mes}</span>${bigVal(d[i],mD)}</div><div><span class="lbl">Disponibilidad acumulada</span>${bigVal(dA[i],mD)}</div></div>
+      ${(mC!==null||mD!==null)?`<div class="sys-meta">Meta: confiabilidad ${fmtP(mC)} · disponibilidad ${fmtP(mD)}</div>`:""}</div>`;
   });
   const lp=hasta(serie("lp")), dv=lpPrev(lp), acum=dv.reduce((a,b)=>b===null?a:a+b,0);
+  const lv=lp.filter(v=>v!==null), prom=lv.length?lv.reduce((a,b)=>a+b,0)/lv.length:null;
   h+=`<div class="panel sys"><div class="sys-h"><h3>Linepack</h3><span class="tag">MMm³ @ 9300 kcal</span></div>
-    <div class="sys-big"><div><span class="lbl">Stock cierre ${MESES[i]}</span><b class="bign">${fmtMM(lp[i])}</b></div><div><span class="lbl">Var. vs mes ant.</span><b class="bign">${fmtSigned(dv[i])}</b></div></div>
-    <div class="sys-sub"><span>Var. acum. año <b>${fmtSigned(dv.some(v=>v!==null)?acum:null)}</b></span></div>
-    <div class="sys-sp">${spark(lp,"var(--s-conf)",true)}<span class="lbl">Stock al cierre ${ST.anio}</span></div></div>`;
+    <div class="sys-big"><div><span class="lbl">Stock al cierre de ${mes}</span><b class="bign">${fmtMM(lp[i])}</b></div><div><span class="lbl">Variación vs mes anterior</span><b class="bign">${fmtSigned(dv[i])}</b></div></div>
+    <div class="sys-big sys-sep"><div><span class="lbl">Promedio del año</span><b class="bign">${fmtMM(prom)}</b></div><div><span class="lbl">Variación acumulada del año</span><b class="bign">${fmtSigned(dv.some(v=>v!==null)?acum:null)}</b></div></div></div>`;
   document.getElementById("sysRes").innerHTML=h;
+  graficoSistema();
 }
 function spark(vals,color,libre){
   const W=240,H=40,p=4;
@@ -413,8 +430,8 @@ function linepack(){
   const mx=vals.length?Math.max(...vals):null, mn=vals.length?Math.min(...vals):null;
   const prom=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
   hostA.innerHTML=`<h3>Stock al cierre</h3>
-    <div class="kpis"><div class="kpi"><b style="color:var(--s-conf)">${fmtMM(lp[i])}</b><span>${MESES[i]} · MMm³</span></div>
-    <div class="kpi"><b>${fmtMM(prom)}</b><span>Promedio año</span></div>
+    <div class="kpis"><div class="kpi"><b style="color:var(--s-conf)">${fmtMM(lp[i])}</b><span>Cierre de ${MESES_L[i].toLowerCase()} · MMm³</span></div>
+    <div class="kpi"><b>${fmtMM(prom)}</b><span>Promedio del año</span></div>
     <div class="kpi"><b>${fmtMM(mx)}</b><span>Máximo</span></div><div class="kpi"><b>${fmtMM(mn)}</b><span>Mínimo</span></div></div>
     <div class="chart"></div>`;
   if(vals.length){
@@ -425,8 +442,8 @@ function linepack(){
   const hostB=document.getElementById("pLPv");
   const acum=dv.reduce((a,b)=>b===null?a:a+b,0);
   hostB.innerHTML=`<h3>Variación mensual</h3>
-    <div class="kpis"><div class="kpi"><b>${fmtSigned(dv[i])}</b><span>${MESES[i]} vs mes ant. · MMm³</span></div>
-    <div class="kpi"><b>${fmtSigned(dv.some(v=>v!==null)?acum:null)}</b><span>Acumulado año</span></div></div>
+    <div class="kpis"><div class="kpi"><b>${fmtSigned(dv[i])}</b><span>${MESES_L[i]} vs mes anterior · MMm³</span></div>
+    <div class="kpi"><b>${fmtSigned(dv.some(v=>v!==null)?acum:null)}</b><span>Acumulado del año</span></div></div>
     <div class="legend"><span><i style="background:var(--s-up)"></i>Empaque (sube)</span><span><i style="background:var(--s-down)"></i>Desempaque (baja)</span></div>
     <div class="chart"></div>`;
   barsDiv(hostB.querySelector(".chart"),dv);
@@ -459,7 +476,7 @@ function eventos(){
   let ev=D.ev.filter(e=>e.anio===ST.anio&&e.mes<=ST.mes);
   if(ST.evF!=="Todos"){const [eq,pl]=ST.evF.split(" "); ev=ev.filter(e=>e.equipo.startsWith(eq)&&e.planta===pl);}
   ev.sort((a,b)=>b.mes-a.mes);
-  document.getElementById("evList").innerHTML=ev.length?ev.map(e=>`<div class="ev"><div class="m">${MESES[e.mes-1]}</div><div class="t">
+  document.getElementById("evList").innerHTML=ev.length?ev.map(e=>`<div class="ev"><div class="m">${MESES_L[e.mes-1]}</div><div class="t">
     <div class="tags"><span class="tag">${e.equipo} ${PLANTAS[e.planta]?PLANTAS[e.planta].replace("PC ",""):e.planta}</span>${e.tipo?`<span class="tag ${e.tipo}">${e.tipo}</span>`:""}${e.horas!=null?`<span class="tag">${e.horas.toLocaleString("es-AR")} h</span>`:""}</div>
     <div>${esc(e.desc)}</div>${e.ref?`<div class="ref">${esc(e.ref)}</div>`:""}</div></div>`).join(""):`<p class="empty">Sin eventos cargados para este filtro.</p>`;
 }
