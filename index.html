@@ -51,7 +51,7 @@ section>h2{font:700 20px/1.2 var(--f-disp);margin:0;letter-spacing:.01em}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
 @media (max-width:420px){.grid2{grid-template-columns:1fr}}
 .panel h3{font:600 15px var(--f-disp);margin:0 0 2px;letter-spacing:.02em}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:6px 14px;margin:6px 0 10px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px 14px;margin:6px 0 10px}
 .kpi{display:flex;flex-direction:column}
 .kpi b{font:500 20px var(--f-num);font-variant-numeric:tabular-nums}
 .kpi span{font:500 11px var(--f-disp);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
@@ -138,7 +138,7 @@ footer.wrap{padding-block:0 32px;font-size:12px;color:var(--ink-3)}
       <div><h2 id="hTC">Turbocompresores</h2><p>Evolución mensual por planta</p></div>
       <div class="seg" role="group" aria-label="Vista turbocompresores" data-sec="TC"><button type="button" id="tcMen" aria-pressed="true" data-v="m">Mensual</button><button type="button" id="tcAcu" aria-pressed="false" data-v="a">Acumulado</button></div>
     </div>
-    <div class="grid2"><div class="panel" id="pTC_TTY"></div><div class="panel" id="pTC_SQL"></div></div>
+    <div class="grid2" id="gTC"></div>
   </section>
 
   <section aria-labelledby="hMG">
@@ -146,7 +146,7 @@ footer.wrap{padding-block:0 32px;font-size:12px;color:var(--ink-3)}
       <div><h2 id="hMG">Motogeneradores</h2><p>Sistema de generación de cada planta</p></div>
       <div class="seg" role="group" aria-label="Vista motogeneradores" data-sec="MG"><button type="button" id="mgMen" aria-pressed="true" data-v="m">Mensual</button><button type="button" id="mgAcu" aria-pressed="false" data-v="a">Acumulado</button></div>
     </div>
-    <div class="grid2"><div class="panel" id="pMG_TTY"></div><div class="panel" id="pMG_SQL"></div></div>
+    <div class="grid2" id="gMG"></div>
   </section>
 
   <section aria-labelledby="hLP">
@@ -162,7 +162,7 @@ footer.wrap{padding-block:0 32px;font-size:12px;color:var(--ink-3)}
     <div class="panel" id="evList"></div>
   </section>
 </main>
-<footer class="wrap"><p>Sistema GPM = promedio de PC Tratayén y PC Salliqueló. Acumulado = promedio del año ponderado por las horas calendario de cada mes. Confiabilidad excluye las paradas programadas; disponibilidad las incluye todas.</p></footer>
+<footer class="wrap"><p>Sistema GPM = promedio de las plantas con dato en cada mes. Acumulado = promedio del año ponderado por las horas calendario de cada mes. Confiabilidad excluye las paradas programadas; disponibilidad las incluye todas.</p></footer>
 
 <script>
 /* ===== CONFIGURACIÓN DE FUENTE =====
@@ -201,14 +201,15 @@ const EMBEBIDO = {
     [2026,9,"SQL","TC","Programada","","Mantenimientos menores programados.","OM 101208375 / 101210173"],
     [2026,1,"SQL","MG","Externa","","24/01: evento de venteo de planta por cuestiones externas a la usina.",""]
   ],
-  CONFIG: [["Parametro","Valor","Descripcion"],["Meta_TC_Conf",""],["Meta_TC_Disp",""],["Meta_MG_Conf",""],["Meta_MG_Disp",""]]
+  CONFIG: [["Parametro","Valor","Descripcion"],["Meta_TC_Conf",""],["Meta_TC_Disp",""],["Meta_MG_Conf",""],["Meta_MG_Disp",""],["Planta_TTY","PC Tratayén"],["Planta_SQL","PC Salliqueló"]]
 };
 
 const MESES=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 const MESES_L=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-const PLANTAS={TTY:"PC Tratayén",SQL:"PC Salliqueló"};
+const PLANTAS={TTY:"PC Tratayén",SQL:"PC Salliqueló"}; // se completan/actualizan con las filas Planta_XXX de CONFIG
 const EQUIPOS={TC:"Turbocompresor",MG:"Motogeneradores"};
-const PCT_COLS=["TC_TTY_Conf","TC_TTY_Disp","TC_SQL_Conf","TC_SQL_Disp","MG_TTY_Conf","MG_TTY_Disp","MG_SQL_Conf","MG_SQL_Disp"];
+let PCT_COLS=[], KEYS=[], CODIGOS=[]; // se detectan de los encabezados de BASE: TC_XXX_Conf, MG_XXX_Disp, etc.
+const RE_COL=/^(TC|MG)_([A-Z0-9]+)_(Conf|Disp)$/i;
 
 let D=null, ST={anio:null,mes:null,vista:{TC:"m",MG:"m"},evF:"Todos"};
 
@@ -243,9 +244,15 @@ function parseCSV(t){
   if(f||row.length){row.push(f);out.push(row);} return out;
 }
 function normalizar(raw){
+  const hdr=(raw.BASE&&raw.BASE[0]||[]).map(x=>String(x).trim());
+  PCT_COLS=hdr.filter(h=>RE_COL.test(h));
+  CODIGOS=[...new Set(PCT_COLS.map(h=>h.match(RE_COL)[2].toUpperCase()))];
+  KEYS=PCT_COLS.map(h=>{const m=h.match(RE_COL); return `${m[1].toUpperCase()}_${m[2].toUpperCase()}_${m[3][0].toUpperCase()+m[3].slice(1).toLowerCase()}`;});
+  toObjs(raw.CONFIG).forEach(o=>{const k=String(o.Parametro||"").trim(); const m=k.match(/^Planta_([A-Z0-9]+)$/i); if(m&&String(o.Valor||"").trim()) PLANTAS[m[1].toUpperCase()]=String(o.Valor).trim();});
+  CODIGOS.forEach(c=>{if(!PLANTAS[c]) PLANTAS[c]=c;});
   const base=toObjs(raw.BASE).map(o=>{
     const r={anio:num(o["Año"]??o["Anio"]),mes:num(o["Mes"]),lp:num(o["Linepack_m3"])};
-    PCT_COLS.forEach(k=>{let v=num(o[k]); if(v!==null&&v>1.0001&&v<=100) v=v/100; r[k]=v;});
+    PCT_COLS.forEach(k=>{const m=k.match(RE_COL); const key=`${m[1].toUpperCase()}_${m[2].toUpperCase()}_${m[3][0].toUpperCase()+m[3].slice(1).toLowerCase()}`; let v=num(o[k]); if(v!==null&&v>1.0001&&v<=100) v=v/100; r[key]=v;});
     return r;
   }).filter(r=>r.anio&&r.mes>=1&&r.mes<=12);
   const ev=toObjs(raw.EVENTOS).map(o=>({anio:num(o["Año"]??o["Anio"]),mes:num(o["Mes"]),planta:String(o.Planta||"").trim().toUpperCase(),equipo:String(o.Equipo||"").trim().toUpperCase(),tipo:String(o.Tipo||"").trim(),horas:num(o.Horas_fuera),desc:String(o.Descripcion||o["Descripción"]||"").trim(),ref:String(o.Aviso_OM||"").trim()})).filter(e=>e.anio&&e.desc);
@@ -332,6 +339,14 @@ function pctDomain(vals,mt){
 const fmtTick=(v,full)=>full?fmtP(v):(v*100).toLocaleString("es-AR",{maximumFractionDigits:1})+"%";
 
 /* ---------- render ---------- */
+function plantasCon(eq){ // plantas con algún dato del equipo en el año elegido
+  return CODIGOS.filter(pl=>D.base.some(r=>r.anio===ST.anio&&(r[`${eq}_${pl}_Conf`]!=null||r[`${eq}_${pl}_Disp`]!=null)));
+}
+function panelesEquipo(eq){
+  const g=document.getElementById(`g${eq}`); const pls=plantasCon(eq);
+  g.innerHTML=pls.length?pls.map(pl=>`<div class="panel" id="p${eq}_${pl}"></div>`).join(""):`<div class="panel"><p class="empty">Sin datos cargados para ${ST.anio}.</p></div>`;
+  pls.forEach(pl=>panelEquipo(eq,pl));
+}
 function panelEquipo(eq,pl){
   const host=document.getElementById(`p${eq}_${pl}`);
   const ac=ST.vista[eq]==="a";
@@ -352,14 +367,14 @@ function panelEquipo(eq,pl){
   const dom=pctDomain([...cv,...dv],mD);
   lineChart(host.querySelector(".chart"),{series:[{name:"Disponibilidad",color:"var(--s-disp)",values:dv},{name:"Confiabilidad",color:"var(--s-conf)",values:cv}],meta:mD??mC,domain:dom,fmt:fmtTick});
 }
-function sistema(eq,ind){ // GPM = promedio Tratayén + Salliqueló
-  const t=hasta(serie(`${eq}_TTY_${ind}`)), q=hasta(serie(`${eq}_SQL_${ind}`));
-  return t.map((v,i)=>v===null||q[i]===null?null:(v+q[i])/2);
+function sistema(eq,ind){ // GPM = promedio de las plantas con dato en cada mes
+  const ss=plantasCon(eq).map(pl=>hasta(serie(`${eq}_${pl}_${ind}`)));
+  return Array.from({length:12},(_,i)=>{const v=ss.map(x=>x[i]).filter(x=>x!==null); return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;});
 }
 function bigVal(v,m){const c=m===null||v===null?"":(v>=m-1e-9?"ok":"bad"); return `<b class="bign ${c}">${fmtP(v)}</b>`;}
 function resumen(){
   const i=ST.mes-1;
-  document.getElementById("resSub").textContent=`PC Tratayén + PC Salliqueló · ${MESES_L[i]} ${ST.anio} y acumulado enero–${MESES_L[i].toLowerCase()}`;
+  document.getElementById("resSub").textContent=`${[...new Set([...plantasCon("TC"),...plantasCon("MG")])].map(c=>PLANTAS[c]).join(" + ")} · ${MESES_L[i]} ${ST.anio} y acumulado enero–${MESES_L[i].toLowerCase()}`;
   let h="";
   [["TC","Turbocompresores"],["MG","Motogeneradores"]].forEach(([eq,nom])=>{
     const c=sistema(eq,"Conf"), d=sistema(eq,"Disp"), cA=acumulada(c), dA=acumulada(d), mC=meta(eq,"Conf");
@@ -437,9 +452,9 @@ function barsDiv(host,vals){
   host.innerHTML=s+"</svg>";
 }
 function eventos(){
-  const opts=["Todos","TC TTY","TC SQL","MG TTY","MG SQL"];
+  const opts=["Todos",...["TC","MG"].flatMap(eq=>plantasCon(eq).map(pl=>`${eq} ${pl}`))]; if(!opts.includes(ST.evF)) ST.evF="Todos";
   const ch=document.getElementById("evChips");
-  ch.innerHTML=opts.map(o=>`<button type="button" class="chip" aria-pressed="${ST.evF===o}" data-f="${o}">${o==="Todos"?"Todos":o.replace("TTY","Tratayén").replace("SQL","Salliqueló")}</button>`).join("");
+  ch.innerHTML=opts.map(o=>`<button type="button" class="chip" aria-pressed="${ST.evF===o}" data-f="${o}">${o==="Todos"?"Todos":o.split(" ")[0]+" "+PLANTAS[o.split(" ")[1]].replace(/^PC /,"")}</button>`).join("");
   ch.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{ST.evF=b.dataset.f;eventos();});
   let ev=D.ev.filter(e=>e.anio===ST.anio&&e.mes<=ST.mes);
   if(ST.evF!=="Todos"){const [eq,pl]=ST.evF.split(" "); ev=ev.filter(e=>e.equipo.startsWith(eq)&&e.planta===pl);}
@@ -451,13 +466,13 @@ function eventos(){
 const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 function ultimoMes(anio){
-  let u=0; D.base.filter(r=>r.anio===anio).forEach(r=>{ if(PCT_COLS.some(k=>r[k]!==null)||r.lp!==null) u=Math.max(u,r.mes); }); return u||1;
+  let u=0; D.base.filter(r=>r.anio===anio).forEach(r=>{ if(KEYS.some(k=>r[k]!=null)||r.lp!==null) u=Math.max(u,r.mes); }); return u||1;
 }
 function render(){
-  resumen(); ["TC","MG"].forEach(eq=>["TTY","SQL"].forEach(pl=>panelEquipo(eq,pl))); linepack(); eventos();
+  resumen(); panelesEquipo("TC"); panelesEquipo("MG"); linepack(); eventos();
 }
 function controles(){
-  const anios=[...new Set(D.base.filter(r=>PCT_COLS.some(k=>r[k]!==null)).map(r=>r.anio))].sort();
+  const anios=[...new Set(D.base.filter(r=>KEYS.some(k=>r[k]!=null)).map(r=>r.anio))].sort();
   const sa=document.getElementById("selAnio"), sm=document.getElementById("selMes");
   sa.innerHTML=anios.map(a=>`<option value="${a}">${a}</option>`).join("");
   ST.anio=anios[anios.length-1]; sa.value=ST.anio;
@@ -466,7 +481,7 @@ function controles(){
   sa.onchange=()=>{ST.anio=+sa.value;llenarMes();render();};
   sm.onchange=()=>{ST.mes=+sm.value;render();};
   document.querySelectorAll(".seg").forEach(g=>g.querySelectorAll("button").forEach(b=>b.onclick=()=>{
-    ST.vista[g.dataset.sec]=b.dataset.v; g.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b)); ["TTY","SQL"].forEach(pl=>panelEquipo(g.dataset.sec,pl));}));
+    ST.vista[g.dataset.sec]=b.dataset.v; g.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b)); panelesEquipo(g.dataset.sec);}));
 }
 (async()=>{
   const {raw,src}=await cargar();
