@@ -123,7 +123,6 @@ footer.wrap{padding-block:0 32px;font-size:12px;color:var(--ink-3)}
     <div class="controls">
       <label for="selAnio">Año<select id="selAnio"></select></label>
       <label for="selMes">Corte<select id="selMes"></select></label>
-      <span class="src" id="src">Cargando…</span>
     </div>
   </div>
 </header>
@@ -472,7 +471,7 @@ function controles(){
 (async()=>{
   const {raw,src}=await cargar();
   D=normalizar(raw);
-  document.getElementById("src").textContent="Fuente: "+src;
+  console.info("Fuente de datos: "+src);
   if(!D.base.length){document.querySelector("main").innerHTML=`<p class="empty">La pestaña BASE no tiene filas válidas. Revisar que los encabezados coincidan con la plantilla.</p>`;return;}
   controles(); render();
   let t; addEventListener("resize",()=>{clearTimeout(t);t=setTimeout(render,150);});
