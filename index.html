@@ -68,6 +68,18 @@ section>h2{font:700 20px/1.2 var(--f-disp);margin:0;letter-spacing:.01em}
 .tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--panel);font:12px/1.4 var(--f-body);padding:8px 10px;border-radius:6px;white-space:nowrap;transform:translate(-50%,-100%);z-index:2}
 .tip b{font-family:var(--f-num);font-weight:500}
 .tip .sw{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.sys{display:flex;flex-direction:column;gap:10px}
+.sys-h{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sys-h h3{font-size:17px;margin:0}
+.sys-big{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sys-big>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.lbl{font:500 11px var(--f-disp);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.bign{font:500 clamp(24px,3vw,30px)/1.1 var(--f-num);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.bign.ok{color:var(--ok)}.bign.bad{color:var(--bad)}
+.sys-sub{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:13px;color:var(--ink-2);padding-top:8px;border-top:1px solid var(--line)}
+.sys-sub b{font:500 13px var(--f-num);color:var(--ink)}
+.sys-sp{display:flex;flex-direction:column;gap:4px;margin-top:auto}
 /* Tabla resumen */
 .tbl-wrap{overflow-x:auto}
 table{border-collapse:collapse;width:100%;font-size:14px}
@@ -118,8 +130,8 @@ footer.wrap{padding-block:0 32px;font-size:12px;color:var(--ink-3)}
 
 <main class="wrap">
   <section aria-labelledby="hRes">
-    <div class="sec-head"><div><h2 id="hRes">Resumen</h2><p id="resSub"></p></div></div>
-    <div class="panel tbl-wrap"><table id="tblRes"></table></div>
+    <div class="sec-head"><div><h2 id="hRes">Sistema GPM</h2><p id="resSub"></p></div></div>
+    <div class="grid3" id="sysRes"></div>
   </section>
 
   <section aria-labelledby="hTC">
@@ -151,7 +163,7 @@ footer.wrap{padding-block:0 32px;font-size:12px;color:var(--ink-3)}
     <div class="panel" id="evList"></div>
   </section>
 </main>
-<footer class="wrap"><p>Acumulado = promedio del año ponderado por las horas calendario de cada mes. Confiabilidad excluye las paradas programadas; disponibilidad las incluye todas.</p></footer>
+<footer class="wrap"><p>Sistema GPM = promedio de PC Tratayén y PC Salliqueló. Acumulado = promedio del año ponderado por las horas calendario de cada mes. Confiabilidad excluye las paradas programadas; disponibilidad las incluye todas.</p></footer>
 
 <script>
 /* ===== CONFIGURACIÓN DE FUENTE =====
@@ -341,31 +353,39 @@ function panelEquipo(eq,pl){
   const dom=pctDomain([...cv,...dv],mD);
   lineChart(host.querySelector(".chart"),{series:[{name:"Disponibilidad",color:"var(--s-disp)",values:dv},{name:"Confiabilidad",color:"var(--s-conf)",values:cv}],meta:mD??mC,domain:dom,fmt:fmtTick});
 }
+function sistema(eq,ind){ // GPM = promedio Tratayén + Salliqueló
+  const t=hasta(serie(`${eq}_TTY_${ind}`)), q=hasta(serie(`${eq}_SQL_${ind}`));
+  return t.map((v,i)=>v===null||q[i]===null?null:(v+q[i])/2);
+}
+function bigVal(v,m){const c=m===null||v===null?"":(v>=m-1e-9?"ok":"bad"); return `<b class="bign ${c}">${fmtP(v)}</b>`;}
 function resumen(){
   const i=ST.mes-1;
-  document.getElementById("resSub").textContent=`${MESES_L[i]} ${ST.anio} y acumulado enero–${MESES_L[i].toLowerCase()}`;
-  let h=`<thead><tr><th>Equipo</th><th>Conf. mes</th><th>Disp. mes</th><th>Conf. acum.</th><th>Disp. acum.</th><th>Disp. ${ST.anio}</th></tr></thead><tbody>`;
-  ["TC","MG"].forEach(eq=>["TTY","SQL"].forEach(pl=>{
-    const c=hasta(serie(`${eq}_${pl}_Conf`)), d=hasta(serie(`${eq}_${pl}_Disp`));
-    const cA=acumulada(c), dA=acumulada(d);
-    h+=`<tr><td><span class="eq">${eq==="TC"?"Turbocompresor":"Motogeneradores"}</span><span class="pl">${PLANTAS[pl]}</span></td>
-      <td class="n">${pill(c[i],meta(eq,"Conf"))}</td><td class="n">${pill(d[i],meta(eq,"Disp"))}</td>
-      <td class="n">${pill(cA[i],meta(eq,"Conf"))}</td><td class="n">${pill(dA[i],meta(eq,"Disp"))}</td>
-      <td>${spark(d)}</td></tr>`;
-  }));
-  const lp=serie("lp"), prev=lpPrev(lp);
-  h+=`<tr><td><span class="eq">Linepack</span><span class="pl">cierre de ${MESES[i]}</span></td><td class="n" colspan="2">${fmtMM(lp[i])} MMm³</td><td class="n" colspan="2">${fmtSigned(prev[i])} MMm³ vs mes ant.</td><td></td></tr>`;
-  document.getElementById("tblRes").innerHTML=h+"</tbody>";
+  document.getElementById("resSub").textContent=`PC Tratayén + PC Salliqueló · ${MESES_L[i]} ${ST.anio} y acumulado enero–${MESES_L[i].toLowerCase()}`;
+  let h="";
+  [["TC","Turbocompresores"],["MG","Motogeneradores"]].forEach(([eq,nom])=>{
+    const c=sistema(eq,"Conf"), d=sistema(eq,"Disp"), cA=acumulada(c), dA=acumulada(d), mC=meta(eq,"Conf");
+    h+=`<div class="panel sys"><div class="sys-h"><h3>${nom}</h3><span class="tag">TTCC</span></div>
+      <div class="sys-big"><div><span class="lbl">Confiabilidad ${MESES[i]}</span>${bigVal(c[i],mC)}</div><div><span class="lbl">Confiabilidad acum.</span>${bigVal(cA[i],mC)}</div></div>
+      <div class="sys-sub"><span>Disp. ${MESES[i]} <b>${fmtP(d[i])}</b></span><span>Disp. acum. <b>${fmtP(dA[i])}</b></span>${mC!==null?`<span>Meta conf. <b>${fmtP(mC)}</b></span>`:""}</div>
+      <div class="sys-sp">${spark(c,"var(--s-conf)")}<span class="lbl">Confiabilidad mensual ${ST.anio}</span></div></div>`.replace("TTCC",eq==="TC"?"TTCC":"MMGG");
+  });
+  const lp=hasta(serie("lp")), dv=lpPrev(lp), acum=dv.reduce((a,b)=>b===null?a:a+b,0);
+  h+=`<div class="panel sys"><div class="sys-h"><h3>Linepack</h3><span class="tag">MMm³ @ 9300 kcal</span></div>
+    <div class="sys-big"><div><span class="lbl">Stock cierre ${MESES[i]}</span><b class="bign">${fmtMM(lp[i])}</b></div><div><span class="lbl">Var. vs mes ant.</span><b class="bign">${fmtSigned(dv[i])}</b></div></div>
+    <div class="sys-sub"><span>Var. acum. año <b>${fmtSigned(dv.some(v=>v!==null)?acum:null)}</b></span></div>
+    <div class="sys-sp">${spark(lp,"var(--s-conf)",true)}<span class="lbl">Stock al cierre ${ST.anio}</span></div></div>`;
+  document.getElementById("sysRes").innerHTML=h;
 }
-function spark(vals){
-  const W=120,H=28,p=3; const v=vals.map(x=>x);
-  const pts=v.map((x,i)=>x===null?null:[p+(W-2*p)*i/11, x]).filter(Boolean);
+function spark(vals,color,libre){
+  const W=240,H=40,p=4;
+  const pts=vals.map((x,i)=>x===null?null:[p+(W-2*p)*i/11, x]).filter(Boolean);
   if(!pts.length) return "";
-  const lo=Math.min(.9,...pts.map(q=>q[1]));
-  const y=x=>p+(H-2*p)*(1-(x-lo)/(1-lo||1));
+  const ys=pts.map(q=>q[1]); let lo,hi;
+  if(libre){lo=Math.min(...ys);hi=Math.max(...ys);} else {lo=Math.min(.95,...ys);hi=1;}
+  const y=x=>p+(H-2*p)*(1-(x-lo)/((hi-lo)||1));
   const d=pts.map((q,k)=>(k?"L":"M")+q[0].toFixed(1)+","+y(q[1]).toFixed(1)).join("");
   const last=pts[pts.length-1];
-  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true" style="display:block;margin-left:auto"><path d="${d}" fill="none" stroke="var(--s-disp)" stroke-width="1.5"/><circle cx="${last[0]}" cy="${y(last[1])}" r="2.5" fill="var(--s-disp)"/></svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true" style="display:block;width:100%;height:${H}px"><path d="${d}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>`;
 }
 function lpPrev(lp){
   return lp.map((v,i)=>{ if(v===null) return null; let p=null;
